@@ -1,0 +1,135 @@
+version: '3.9'
+
+services:
+  postgres-db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 3635
+      POSTGRES_DB: ev91platform
+    ports:
+      - "5432:5432"
+    networks:
+      - ems-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  admin-portal:
+    build: ./admin-portal
+    container_name: admin-portal
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./admin-portal/.env
+    networks:
+      - ems-network
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./api-gateway/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+      - auth-service
+      - client-store-service
+      - vehicle-service
+      - rider-service
+      - spare-parts-service
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "4001:4001"
+      - "5555:5555"
+    env_file:
+      - ./services/auth-service/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+
+  client-store-service:
+    build: ./services/client-store-service
+    container_name: client-store-service
+    ports:
+      - "3006:3006"
+      - "5556:5556"
+    env_file:
+      - ./services/client-store-service/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+
+  spare-parts-service:
+    build: ./services/spare-parts-service
+    container_name: spare-parts-service
+    ports:
+      - "4010:4010"
+      - "5558:5558"
+    env_file:
+      - ./services/spare-parts-service/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+
+  vehicle-service:
+    build: ./services/vehicle-service
+    container_name: vehicle-service
+    ports:
+      - "4004:4004"
+      - "5557:5557"
+    env_file:
+      - ./services/vehicle-service/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+
+  rider-service:
+    build: ./services/rider-service
+    container_name: rider-service
+    ports:
+      - "4005:4005"
+      - "5559:5559"
+    env_file:
+      - ./services/rider-service/.env
+    networks:
+      - ems-network
+    depends_on:
+      - postgres-db
+
+  seed-service:
+    image: node:18
+    container_name: seed-service
+    volumes:
+      - ./seed-all.sh:/app/seed-all.sh
+      - ./services:/app/services
+    working_dir: /app
+    networks:
+      - ems-network
+    depends_on:
+      - auth-service
+      - client-store-service
+      - spare-parts-service
+      - vehicle-service
+      - rider-service
+    command: ["sh", "/app/seed-all.sh"]
+
+networks:
+  ems-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
